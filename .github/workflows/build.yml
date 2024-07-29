@@ -61,12 +61,12 @@ jobs:
     - name: Show the wheel with auditwheel-symbols
       run: |
         pip install auditwheel-symbols
-        auditwheel-symbols --manylinux 2_35 dist/*.whl
+        auditwheel-symbols --manylinux 2_28 dist/*.whl
 
     - name: Repair wheel
       run: |
         pip install auditwheel
-        auditwheel repair --plat manylinux_2_35_x86_64 dist/*.whl -w output_dir
+        auditwheel repair --plat manylinux_2_28_x86_64 dist/*.whl -w output_dir
 
     - name: Upload wheel
       uses: actions/upload-artifact@v2
