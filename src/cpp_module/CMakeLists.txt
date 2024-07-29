@@ -75,13 +75,4 @@ pybind11_add_module(alexander_poly MODULE ${SOURCE_FILES})
 
 target_link_libraries(alexander_poly PRIVATE ${GINAC_LIBRARY} ${CLN_LIBRARIES})
 
-include_directories(${GMP_INCLUDE_DIRS} ${EIGEN3_INCLUDE_DIR})
-# install(TARGETS alexander_poly
-#   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-#   ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-#   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-# )
-
-# install(FILES ${GINAC_LIBRARY}
-#   DESTINATION ${CMAKE_INSTALL_LIBDIR}
-# )
+include_directories(${EIGEN3_INCLUDE_DIR})

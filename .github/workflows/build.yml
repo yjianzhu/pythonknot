@@ -43,7 +43,7 @@ jobs:
         ./autogen.sh
         mkdir build
         ./configure --with-gmp --prefix=$(pwd)/build  CFLAGS="-g -O2 -fPIC" CXXFLAGS="-g -O2 -fPIC"
-        make -j 5
+        make -j 10
         make install
 
         cd ${GITHUB_WORKSPACE}/src/cpp_module/ginac/
