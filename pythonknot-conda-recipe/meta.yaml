@@ -1,0 +1,46 @@
+package:
+  name: pythonknot
+  version: 0.1
+
+source:
+  path: {{ recipe_dir }}/..
+
+build:
+  number: 0
+  script: "{{ PYTHON }} -m pip install . --no-deps --ignore-installed -vv"
+  skip: True  # [win]  # Add this line if you want to skip building on Windows.
+
+requirements:
+  build:
+    - cmake
+    - make
+    - {{ compiler('cxx') }}
+    - {{ compiler('python') }}
+    - ninja  # Optional, if you use Ninja for building
+  host:
+    - python
+    - pip
+    - numpy
+    - scipy
+    - pybind11
+    - rmsd
+  run:
+    - python
+    - numpy
+    - scipy
+    - pybind11
+    - rmsd
+
+test:
+  imports:
+    - pythonknot
+
+about:
+  home: <URL to project home, e.g., GitHub>
+  license: MIT  # Specify your license
+  license_file: LICENSE
+  summary: 'Python Knot is a Python package for creating and manipulating knots and links, calculating knot invariants, and more.'
+
+extra:
+  recipe-maintainers:
+    - your-github-username

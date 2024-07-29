@@ -1,0 +1,6 @@
+numpy
+scipy
+pybind11[global]
+rmsd
+setuptools
+wheel

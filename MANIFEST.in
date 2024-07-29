@@ -1,0 +1,4 @@
+include src/cpp_module/CMakeLists.txt
+recursive-include src/cpp_module/ginac/ *.*
+recursive-include src/cpp_module/cmake_file/ *.*
+recursive-include src/cpp_module/src/ *.*
