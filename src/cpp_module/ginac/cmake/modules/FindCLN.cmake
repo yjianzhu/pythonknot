@@ -36,19 +36,21 @@ set(CLN_FOUND)
 set(CLN_INCLUDE_DIR)
 set(CLN_LIBRARIES)
 
-include(FindPkgConfig)
-if (PKG_CONFIG_FOUND)
-	pkg_check_modules(_cln cln)
-endif()
+# include(FindPkgConfig)
+# if (PKG_CONFIG_FOUND)
+# 	pkg_check_modules(_cln cln)
+# endif()
 
 find_path(CLN_INCLUDE_DIR NAMES cln/cln.h
 			  HINTS ${_cln_INCLUDE_DIRS}
 				$ENV{CLN_DIR}/include
+				${CLN_DIR}/include
 				)
 find_library(CLN_LIBRARIES NAMES libcln cln
 			   HINTS ${_cln_LIBRARY_DIR}
 			         ${_cln_LIBRARY_DIRS}
 				 $ENV{CLN_DIR}/lib
+				 ${CLN_DIR}/lib
 				 )
 
 if (CLN_INCLUDE_DIR)
@@ -61,17 +63,17 @@ if (CLN_INCLUDE_DIR)
 	# as the one read from the header. This prevents us from
 	# picking the wrong version of CLN (say, if several versions
 	# are installed)
-	if (_cln_FOUND AND NOT CLN_VERSION VERSION_EQUAL _cln_VERSION)
-		if (NOT CLN_FIND_QUIETLY)
-			message(ERROR "pkg-config and version.h disagree, "
-				      "${_cln_VERSION} vs ${CLN_VERSION}, "
-				      "please check your installation")
-		endif()
-		set(CLN_LIBRARIES CLN-NOTFOUND)
-		set(CLN_INCLUDE_DIR CLN-NOTFOUND)
-		set(CLN_LIBRARY_DIRS)
-		set(CLN_VERSION)
-	endif()
+	# if (_cln_FOUND AND NOT CLN_VERSION VERSION_EQUAL _cln_VERSION)
+	# 	if (NOT CLN_FIND_QUIETLY)
+	# 		message(ERROR "pkg-config and version.h disagree, "
+	# 			      "${_cln_VERSION} vs ${CLN_VERSION}, "
+	# 			      "please check your installation")
+	# 	endif()
+	# 	set(CLN_LIBRARIES CLN-NOTFOUND)
+	# 	set(CLN_INCLUDE_DIR CLN-NOTFOUND)
+	# 	set(CLN_LIBRARY_DIRS)
+	# 	set(CLN_VERSION)
+	# endif()
 endif()
 
 # Check if the version embedded into the library is the same as the one in the headers.

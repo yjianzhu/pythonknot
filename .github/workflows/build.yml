@@ -40,6 +40,7 @@ jobs:
     - name: Build C++ code 
       run: |
         cd ${GITHUB_WORKSPACE}/src/cpp_module/cln/
+        ./autogen.sh
         mkdir build
         ./configure --with-gmp --prefix=$(pwd)/build  CFLAGS="-g -O2 -fPIC" CXXFLAGS="-g -O2 -fPIC"
         make -j 5
