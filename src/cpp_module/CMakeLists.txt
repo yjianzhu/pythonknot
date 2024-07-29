@@ -19,8 +19,14 @@ set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE NEVER)
 find_package(pybind11 CONFIG REQUIRED)
 
 # Set eigen3 path
-set(EIGEN3_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Eigen/")
-
+# Find Eigen3, if not found, set the path manually
+find_package (Eigen3 3.3 REQUIRED NO_MODULE)
+if (NOT Eigen3_FOUND)
+  message(STATUS "Eigen3 not found, set the path manually")
+  set(EIGEN3_INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/Eigen/")
+else()
+  message(STATUS "Eigen3 Include Directory: ${EIGEN3_INCLUDE_DIR}")
+endif()
 # find_package(GMP REQUIRED)
 # message(STATUS "GMP Include Directory: ${GMP_LIBRARIES}")
 
@@ -75,4 +81,9 @@ pybind11_add_module(alexander_poly MODULE ${SOURCE_FILES})
 
 target_link_libraries(alexander_poly PRIVATE ${GINAC_LIBRARY} ${CLN_LIBRARIES})
 
-include_directories(${EIGEN3_INCLUDE_DIR})
+# if find Eigen3, include the directory
+if (Eigen3_FOUND)
+  target_link_libraries(alexander_poly PRIVATE Eigen3::Eigen)
+else()
+  include_directories(${EIGEN3_INCLUDE_DIR})
+endif()
