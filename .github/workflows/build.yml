@@ -36,6 +36,7 @@ jobs:
     - name: Install C++ dependencies
       run: |
         pwd
+        sudo apt install libeigen3-dev
     
     - name: Build C++ code 
       run: |
@@ -71,7 +72,7 @@ jobs:
       uses: actions/upload-artifact@v2
       with:
         name: wheels
-        path: output_dir
+        path: output_dir, dist
 
     # - name: Install the package from wheel
     #   run: |
