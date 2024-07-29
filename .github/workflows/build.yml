@@ -39,13 +39,13 @@ jobs:
     
     - name: Build C++ code 
       run: |
-        cd ${pwd}/src/cpp_module/cln/
+        cd ${GITHUB_WORKSPACE}/src/cpp_module/cln/
         mkdir build
         ./configure --with-gmp --prefix=$(pwd)/build  CFLAGS="-g -O2 -fPIC" CXXFLAGS="-g -O2 -fPIC"
         make -j 5
         make install
 
-        cd ${pwd}/src/cpp_module/ginac/
+        cd ${GITHUB_WORKSPACE}/src/cpp_module/ginac/
         mkdir build
         cd build
         cmake ..
