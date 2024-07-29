@@ -51,6 +51,7 @@ jobs:
         cd build
         cmake ..
         make -j 5
+        cd ${GITHUB_WORKSPACE}
 
     - name: Build wheel
       run: |
