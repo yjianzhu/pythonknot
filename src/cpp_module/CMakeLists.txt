@@ -3,7 +3,6 @@ project(alexander_poly)                   # 定义项目名称
 
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake_file")
 
-set(CMAKE_CXX_COMPILER "/usr/bin/g++-8")
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 set(CMAKE_LINK_SEARCH_END_STATIC FALSE)
