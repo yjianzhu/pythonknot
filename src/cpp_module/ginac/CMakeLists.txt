@@ -54,6 +54,7 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_BINARY_DIR}/gina
 # location this will go into the cache and it will no longer depend on
 # CMAKE_INSTALL_PREFIX.
 
+set(CMAKE_INSTALL_PREFIX "${CMAKE_CURRENT_SOURCE_DIR}/install/")
 macro(_set_fancy _var _value _comment)
 	set(predefinedvalue "${_value}")
 	if ("${CMAKE_INSTALL_PREFIX}" STREQUAL "${GINAC_INSTALL_DIR}" AND DEFINED GINAC_${_var})

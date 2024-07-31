@@ -51,7 +51,13 @@ set(CMAKE_FIND_LIBRARY_SUFFIXES ".so" ".a" ".lib")
 
 find_library(GINAC_LIBRARY 
   NAMES ginac
-  PATHS "${CMAKE_CURRENT_SOURCE_DIR}/ginac/build/ginac/"
+  PATHS "${CMAKE_CURRENT_SOURCE_DIR}/ginac/install/lib"
+  NO_DEFAULT_PATH
+)
+
+find_path(GINAC_INCLUDE_DIR
+  NAMES ginac/ginac.h
+  PATHS "${CMAKE_CURRENT_SOURCE_DIR}/ginac/install/include"
   NO_DEFAULT_PATH
 )
 
@@ -61,7 +67,6 @@ else()
   message(STATUS "Found GINAC: Yes")
   message(STATUS "GINAC Library: ${GINAC_LIBRARY}")
 endif()
-
 
 file(GLOB SOURCE_FILES "src/*.cpp")
 # file(GLOB HEADER_FILES "src/*.h")
@@ -77,5 +82,4 @@ else()
   include_directories(${EIGEN3_INCLUDE_DIR})
 endif()
 
-# include ginac header files folder
-include_directories("${CMAKE_CURRENT_SOURCE_DIR}/ginac/ginac")
+include_directories(${GINAC_INCLUDE_DIR})
