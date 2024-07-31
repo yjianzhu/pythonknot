@@ -5,8 +5,5 @@ Summary: pythonknot for knot theory calculation
 Home-page: 
 Author: yjianzhu
 Author-email: yjianzhu@mail.ustc.edu.cn
-License: UNKNOWN
-Platform: UNKNOWN
 
 Python Knot is a Python package for creating and manipulating knots and links, calculating knot invariants, and more.
-

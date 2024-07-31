@@ -55,11 +55,6 @@ find_library(GINAC_LIBRARY
   PATHS "${CMAKE_CURRENT_SOURCE_DIR}/ginac/build/ginac/"
   NO_DEFAULT_PATH
 )
-# find_library(CLN_LIBRARY
-#   NAMES cln
-#   PATHS "${CMAKE_CURRENT_SOURCE_DIR}/cln/build/lib/"
-#   NO_DEFAULT_PATH
-# )
 
 if(NOT GINAC_LIBRARY)
   message(FATAL_ERROR "GINAC library not found")
@@ -68,12 +63,6 @@ else()
   message(STATUS "GINAC Library: ${GINAC_LIBRARY}")
 endif()
 
-# if(NOT CLN_LIBRARY)
-#   message(FATAL_ERROR "CLN library not found")
-# else()
-#   message(STATUS "Found CLN: Yes")
-#   message(STATUS "CLN Library: ${CLN_LIBRARY}")
-# endif()
 
 file(GLOB SOURCE_FILES "src/*.cpp")
 # file(GLOB HEADER_FILES "src/*.h")
@@ -88,3 +77,6 @@ if (Eigen3_FOUND)
 else()
   include_directories(${EIGEN3_INCLUDE_DIR})
 endif()
+
+# include ginac header files folder
+include_directories("${CMAKE_CURRENT_SOURCE_DIR}/ginac/ginac")
