@@ -52,6 +52,7 @@ jobs:
         cd build
         cmake ..
         make -j 5
+        make install
         cd ${GITHUB_WORKSPACE}
 
     - name: Build wheel
