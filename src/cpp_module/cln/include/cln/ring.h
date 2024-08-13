@@ -437,7 +437,10 @@ public:
 // Type test.
 inline bool instanceof (const cl_number& x, const cl_number_ring& R)
 {
-	return ((cl_heap_number_ring*) R.heappointer)->ops->contains(x);
+    if (!R.heappointer) return false; // 检查R.heappointer是否为空
+    auto ring = static_cast<cl_heap_number_ring*>(R.heappointer);
+    if (!ring || !ring->ops) return false; // 检查ring和ring->ops是否为空
+    return ring->ops->contains(x);
 }
 
 

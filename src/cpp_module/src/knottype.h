@@ -18,5 +18,6 @@ vector<double *> KMT_open_chain(vector<double *> points);
 
 string get_knottype_ring_faster(vector<double *> &points);
 string get_knottype_ring(vector<double *> &points);
+string get_knottype_open_faster(vector<double *> &points);
 
 #endif

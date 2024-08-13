@@ -75,6 +75,12 @@
 /benchmarks/Makefile
 /doc/Makefile
 /examples/Makefile
+/include/cln/config.h
+/include/cln/floatparam.h
+/include/cln/host_cpu.h
+/include/cln/intparam.h
+/include/cln/stamp-h?
+/include/cln/version.h
 /src/Makefile
 /src/base/cl_base_config.h
 /src/base/cl_gmpconfig.h

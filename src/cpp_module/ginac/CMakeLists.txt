@@ -28,8 +28,10 @@ add_custom_target(pdf)
 set (CMAKE_CXX_STANDARD 11)
 
 set (CLN_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../cln/build/")
+set(CMAKE_FIND_LIBRARY_SUFFIXES ".a" ".so" ".lib")
 find_package(CLN 1.2.2 REQUIRED)
 include_directories(${CLN_INCLUDE_DIR})
+set(CMAKE_FIND_LIBRARY_SUFFIXES ".so" ".a" ".lib")
 
 include(CheckIncludeFile)
 check_include_file("unistd.h" HAVE_UNISTD_H)

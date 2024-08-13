@@ -2,6 +2,7 @@
 #include<ginac/ginac.h>
 #include<mutex>
 #include "knot_alex_table.h"
+#include "hull2.h"
 
 using namespace std;
 
@@ -521,5 +522,47 @@ string get_knottype_ring_faster(vector<double *> &points)
     string  result=get_knottype_by_matrix_open(simplify_points);
     delete[] start_point;
 
+    return  result;
+}
+
+string get_knottype_open_faster(vector<double *> &points)
+{
+    vector<double *> simplify_points=KMT_open_chain(points);
+    //************************************************************  给points添加尾部
+    double *start_point,*end_point;
+    start_point=new double[3];
+    end_point=new double[3];
+
+    try
+    {
+        if(simplify_points.size()>4) 
+        {
+            int flag_add_end=hull_ends(simplify_points,simplify_points.size(),start_point,end_point);
+
+            //cout<<flag_add_end<<endl;
+
+            if(flag_add_end == 1) 
+            {       
+                simplify_points.insert(simplify_points.begin(),start_point);
+                simplify_points.push_back(end_point);
+
+            } 
+            else 
+            { // it is shorter to close two ends by a line
+                for(int i=0;i<3;i++)
+                    start_point[i]=simplify_points[0][i];
+                simplify_points.push_back(start_point);
+            }
+        }
+    }
+    catch(int e)
+    {
+
+    };
+
+
+    string result=get_knottype_by_matrix_open(simplify_points);
+
+    delete[] start_point,end_point;
     return  result;
 }

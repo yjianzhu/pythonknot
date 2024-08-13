@@ -6,3 +6,4 @@ src/cpp_module/ginac-1.8.7
 src/cpp_module/build
 src/pythonknot.egg-info
 src/cpp_module/ginac/install
+pythonenv*

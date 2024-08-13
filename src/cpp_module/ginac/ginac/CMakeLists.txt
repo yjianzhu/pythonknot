@@ -151,7 +151,11 @@ add_definitions(-DLIBEXECDIR="${LIBEXECDIR}/")
 set_target_properties(ginac PROPERTIES
 	SOVERSION ${ginaclib_soversion}
 	VERSION ${ginaclib_version})
-target_link_libraries(ginac ${CLN_LIBRARIES})
+find_package(GMP REQUIRED)
+message(STATUS "GMP Include Directory: ${GMP_LIBRARIES}")
+target_link_libraries(ginac ${CLN_LIBRARIES} ${GMP_LIBRARIES})
+include_directories(${CLN_INCLUDE_DIR})
+
 include_directories(${CMAKE_SOURCE_DIR}/ginac)
 
 if (NOT BUILD_SHARED_LIBS)
