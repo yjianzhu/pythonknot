@@ -15,6 +15,7 @@
 #include <getopt.h>
 #include "knot.h"
 #include "knottype.h"
+#include "myfunction.h"
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
@@ -245,12 +246,96 @@ std::pair<std::vector<std::string>, std::vector<std::array<int,3>>> calculate_kn
     return {result_knottype, result_knotsize};
 }
 
+// KMT 
+// 内存泄露检测
+py::array_t<double> KMT_chain(py::array_t<double> input, std::string chain_type) {
+    // 请求 buffer_info 以访问数组数据和维度信息
+    py::buffer_info info = input.request();
+
+    if (info.ndim != 2 || info.shape[1] != 3) {
+        throw std::runtime_error("Expected a 2-dimensional array with shape (N, 3)");
+    }
+
+    ssize_t nAtoms = info.shape[0];
+    ssize_t nDimension = info.shape[1];
+
+    // 创建指向点的指针数组
+    std::vector<double *> points;
+    points.reserve(nAtoms);
+
+    const double *data_ptr = static_cast<const double *>(info.ptr);
+
+    for (ssize_t i = 0; i < nAtoms; ++i) {
+        points.push_back(const_cast<double *>(data_ptr + i * nDimension));
+    }
+
+    // 根据 chain_type 调用不同的函数
+    std::vector<double *> result_points;
+    if (chain_type == "open") {
+        result_points = KMT_open_chain(points);
+    } else if (chain_type == "ring") {
+        result_points = KMT(points);
+    } else {
+        throw std::runtime_error("Invalid chain_type. Expected 'open' or 'ring'.");
+    }
+
+    // 将结果数据从 result_points 复制到 result_data
+    std::vector<double> result_data;
+    for (auto &ptr : result_points) {
+        for (ssize_t j = 0; j < 3; ++j) {
+            result_data.push_back(ptr[j]);
+        }
+    }
+
+    // 将结果转换为 NumPy 数组并返回
+    std::vector<py::ssize_t> shape = {static_cast<py::ssize_t>(result_points.size()), 3};
+    return py::array_t<double>(shape, result_data.data());
+}
+
+py::array_t<int> gauss_notation(py::array_t<double> input) {
+    // 请求 buffer_info 以访问数组数据和维度信息
+    py::buffer_info info = input.request();
+
+    if (info.ndim != 2 || info.shape[1] != 3) {
+        throw std::runtime_error("Expected a 2-dimensional array with shape (N, 3)");
+    }
+
+    ssize_t nAtoms = info.shape[0];
+    ssize_t nDimension = info.shape[1];
+
+    // 创建指向点的指针数组
+    std::vector<double *> points;
+    points.reserve(nAtoms);
+
+    const double *data_ptr = static_cast<const double *>(info.ptr);
+
+    for (ssize_t i = 0; i < nAtoms; ++i) {
+        points.push_back(const_cast<double *>(data_ptr + i * nDimension));
+    }
+
+    // 调用 get_gauss_notation 函数
+    std::vector<int> result_data = get_gauss_notation(points);
+
+    // 将结果转换为 py::array_t<int> 并返回
+    return py::array_t<int>(result_data.size(), result_data.data());
+}
+
 PYBIND11_MODULE(alexander_poly, m) {
+    // io part
+    m.def("read_xyz", &read_xyz, "Read XYZ file and return a numpy array");
+
+    // knot type
     m.doc() = "Module for reading XYZ files with multiple frames and calculating knot type";
     m.def("calculate_knot_type", (std::vector<std::string> (*)(const std::string &)) &calculate_knot_type, "Calculate knot type from XYZ file");
     m.def("calculate_knot_type", (std::vector<std::string> (*)(py::array_t<double>)) &calculate_knot_type, "Calculate knot type from numpy array");
-    m.def("read_xyz", &read_xyz, "Read XYZ file and return a numpy array");
+    
     m.def("calculate_knot_type_open_chain", (std::vector<std::string> (*)(const std::string &)) &calculate_knot_type_open_chain, "Calculate knot type from XYZ file");
     m.def("calculate_knot_type_open_chain", (std::vector<std::string> (*)(py::array_t<double>)) &calculate_knot_type_open_chain, "Calculate knot type from numpy array");
+    
+    // knot size
     m.def("calculate_knot_size", &calculate_knot_size, "Calculate knot size from numpy array");
+
+    // develop
+    m.def("KMT_chain", &KMT_chain, py::arg("input"), py::arg("chain_type"), "A function to compute KMT or KMT_open_chain based on chain_type");
+    m.def("gauss_notation", &gauss_notation, py::arg("input"), "Calculate the Gauss notation for a given input array of points. Accepts a NumPy array of shape (N, 3) as input and returns a 1D NumPy array of integers as output.");
 }

@@ -9,12 +9,14 @@
 #include"myfunction.h"
 using namespace std;
 
+vector<int> get_gauss_notation(vector<double *> &points);
 string get_knottype(vector<double *> &points);
 void get_alxeander_map(fstream &read);
 
 void print_alexander_map();
 
 vector<double *> KMT_open_chain(vector<double *> points);
+vector<double *> KMT(vector<double*> points);
 
 string get_knottype_ring_faster(vector<double *> &points);
 string get_knottype_ring(vector<double *> &points);

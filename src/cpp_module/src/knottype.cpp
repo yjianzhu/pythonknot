@@ -10,6 +10,104 @@ using namespace std;
 // GiNaC::lst syms={t};
 //map<GiNaC::ex,string,GiNaC::ex_is_less>  alexander_polynomial;  //查阅官方文档给出的给ex排序的方式
 
+// only for open chain
+vector<int> get_gauss_notation(vector<double *> &points)
+{
+    int n=points.size();
+    if(n<3)
+    {   
+        return vector<int>(0);
+    }
+
+    int up_down=0;
+    vector<vector<double>> i_Matrix(n-1,vector<double> (n-1,0));
+    vector<vector<int>> i_Matrix_up_down(n-1,vector<int> (n-1,0));
+    for(int i=0;i<n-1;i++)
+    {
+        for(int j=0;j<n-1;j++)
+        {   
+            if(i==j)    continue;
+            up_down=0;
+            i_Matrix[i][j]=cal_interSection(points[i],points[(i+1)],points[j],points[(j+1)],&up_down);
+            i_Matrix_up_down[i][j]=up_down;
+        }
+    }
+
+    map<pair<int,int>,pair<int,int>> crossing;
+    vector<int> segment; //存片段信息
+    // crossing 前两个存哪两个线段交叉，后面的是交叉点计数，以及正负。
+    int count_crossing=0,count_segement=0;//从0开始
+
+    for(int i=0;i<n-1;i++)
+    {
+        vector<pair<int,double>> oneLine;//记录这个线段与哪些片段交叉
+
+        for(int j=0;j<n-1;j++)
+        {
+            if(fabs(i_Matrix[i][j])>my_epsilon)
+            {
+                oneLine.push_back(pair<int,double>(j,fabs(i_Matrix[i][j])));
+            }
+        }
+
+        sort(oneLine.begin(),oneLine.end(),pair_compare);//排序，知道这个线段上的交叉点信息。
+
+        for(auto it=oneLine.begin();it!=oneLine.end();it++)
+        {
+            pair<int,int> temp;
+            if(i<it->first) {temp.first=i;temp.second=it->first;}
+            else {temp.first=it->first;temp.second=i;}
+
+            if(crossing.count(temp)==0)
+            {
+                int isOver0=i_Matrix[i][it->first]>0.?1:-1;
+                crossing.insert(pair<pair<int,int>,pair<int,int>>(temp,pair<int,int>(count_crossing,isOver0)));
+                count_crossing++;
+            }
+            //确保新的交叉点已经加入了map；
+
+            if(i_Matrix_up_down[i][it->first]==-1)
+            {
+                count_segement++;
+                segment.push_back(i);
+            }
+        }
+    }
+
+    // 计算extended gauss notation
+    std::vector<int> notation;
+    std::vector<int> viewed(count_crossing,0);  // 记录当前交叉点是否访问过
+
+    for(int index=0;index<n-1;index++)
+    {
+        vector<pair<int,double>> oneLine;
+        for(int j=0;j<n-1;j++)
+        {
+            if(fabs(i_Matrix[index][j])>my_epsilon)
+                oneLine.push_back(pair<int,double>(j,fabs(i_Matrix[index][j])));
+        }
+        sort(oneLine.begin(),oneLine.end(),pair_compare);
+        for(auto it=oneLine.begin();it!=oneLine.end();it++)
+        {   
+            pair<int,int> temp;
+            if(index<it->first) {temp.first=index;temp.second=it->first;}
+            else {temp.first=it->first;temp.second=index;}
+
+            if(viewed[crossing[temp].first]==0)
+            {
+                viewed[crossing[temp].first]=1;
+                notation.push_back(crossing[temp].first* i_Matrix_up_down[index][it->first]);
+            }
+            else
+            {
+                // 第二次访问，存入手性信息
+                notation.push_back(crossing[temp].first* crossing[temp].second);
+            }
+        }
+    }
+    return notation;
+}
+
 void get_alxeander_map(fstream &read)
 {   
     string knot_type,alex_poly;

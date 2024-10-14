@@ -18,3 +18,14 @@ def read_xyz(file):
             lines = lines[N_atoms:]
 
     return coords
+
+def write_xyz(file, coords):
+    """Write xyz file with coords, coords is a N_frames*N_atoms*3 np array, all the frames have same number of atoms"""
+    N_atoms = coords.shape[1]
+    N_frames = coords.shape[0]
+    with open(file, 'w') as f:
+        for i in range(N_frames):
+            f.write(str(N_atoms)+'\n')
+            f.write('frame '+str(i)+'\n')
+            for j in range(N_atoms):
+                f.write('1 '+str(coords[i,j,0])+' '+str(coords[i,j,1])+' '+str(coords[i,j,2])+'\n')
