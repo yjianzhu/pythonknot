@@ -42,13 +42,13 @@ only support python 3.8 or later
 ### 3.1 HOMFLY polynomial
 
 ```python
-    # read traj
-    import pythonknot.alexander_poly as alexander_poly
-    positions = alexander_poly.read_xyz("traj_knot31_L300_close.txt")
-    print(positions.shape)
+# read traj
+import pythonknot.alexander_poly as alexander_poly
+positions = alexander_poly.read_xyz("traj_knot31_L300_close.txt")
+print(positions.shape)
 
-    import pythonknot.homfly as homfly
-    crossing_number, homflr_poly = homfly.homfly_str(positions[0])  # position should be N_atom*3 array
+import pythonknot.homfly as homfly
+crossing_number, homflr_poly = homfly.homfly_str(positions[0])  # position should be N_atom*3 array
 ```
 
 ### Development
