@@ -2,16 +2,16 @@
 
 Python Knot is a Python package for creating and manipulating knots and links. It is based on the [KnotTheory](https://knot.theory.org) package for Mathematica.
 
-## Installation
+## 1.Installation
 only support python 3.8 or later
 ``` pip install pythonknot```
-## Features
+## 2.Features
 
 1. Create and manipulate knots and links.
 2. Compute invariants of knots and links.
 3. Visualize knots and links.
 
-## Usage
+## 3.Usage
 
     import pythonknot.alexander_poly as alexander_poly
     print(dir(alexander_poly))
@@ -38,6 +38,17 @@ only support python 3.8 or later
     knottype, knotsize = alexander_poly.calculate_knot_size(positions, "open")
     print(knottype)
     print(knotsize)
+
+### 3.1 HOMFLY polynomial
+
+```python
+    # read traj
+    import pythonknot.alexander_poly as alexander_poly
+    positions = alexander_poly.read_xyz("test/traj_knot31_L300_close.txt")
+    print(positions.shape)
+
+    import pythonknot.homfly as homfly
+    crossing_number, homflr_poly = homfly.homfly_str(position[0])  # position should be N_atom*3 array
 
 
 ### Development

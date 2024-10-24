@@ -96,12 +96,12 @@ vector<int> get_gauss_notation(vector<double *> &points)
             if(viewed[crossing[temp].first]==0)
             {
                 viewed[crossing[temp].first]=1;
-                notation.push_back(crossing[temp].first* i_Matrix_up_down[index][it->first]);
+                notation.push_back((crossing[temp].first+1)* i_Matrix_up_down[index][it->first]);
             }
             else
             {
                 // 第二次访问，存入手性信息
-                notation.push_back(crossing[temp].first* crossing[temp].second);
+                notation.push_back((crossing[temp].first+1)* crossing[temp].second);
             }
         }
     }

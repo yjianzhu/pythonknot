@@ -126,14 +126,16 @@ class CMakeBuild(build_ext):
 
 setuptools.setup(
     name="pythonknot",
-    version="0.1.14",
+    version="0.1.15",
     author="yjianzhu",
     author_email="yjianzhu@mail.ustc.edu.cn",
     description="pythonknot for knot theory calculation",
     long_description="Python Knot is a Python package for creating and manipulating knots and links, calculating knot invariants, and more.",
-    #packages=setuptools.find_packages(),
-    url = "",
-    ext_modules=[CMakeExtension(name="pythonknot.alexander_poly", sourcedir="src/cpp_module/")],
+    url="",
+    ext_modules=[
+        CMakeExtension(name="pythonknot.alexander_poly", sourcedir="src/cpp_module/"),
+        CMakeExtension(name="pythonknot.homfly", sourcedir="src/HOMFLY/")
+    ],
     cmdclass={"build_ext": CMakeBuild},
 
     packages=setuptools.find_packages(where='src'), 

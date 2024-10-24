@@ -3,6 +3,7 @@ dist
 old_cpp_version
 src/cpp_module/cln-1.3.7
 src/cpp_module/ginac-1.8.7
+src/cpp_module/gc-8.2.8
 src/cpp_module/build
 src/pythonknot.egg-info
 src/cpp_module/ginac/install
