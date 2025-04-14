@@ -76,4 +76,4 @@ gauss_notation = alexander_poly.gauss_notation(simplified_knot)
 
 ## TODO list
 add other method of open chain knot type calculation, KMT after adding the tail
-add write_xyz function to save the xyz file
+add write_xyz function to save the xyz file, modify with append mode

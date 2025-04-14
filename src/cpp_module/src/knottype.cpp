@@ -1,14 +1,14 @@
-#include"knottype.h"
-#include<ginac/ginac.h>
-#include<mutex>
+#include "knottype.h"
+#include <ginac/ginac.h>
+#include <mutex>
 #include "knot_alex_table.h"
 #include "hull2.h"
 
 using namespace std;
 
-// GiNaC::symbol t("t");
-// GiNaC::lst syms={t};
-//map<GiNaC::ex,string,GiNaC::ex_is_less>  alexander_polynomial;  //查阅官方文档给出的给ex排序的方式
+// extern GiNaC::symbol t;
+// extern GiNaC::lst syms;
+// extern std::map<GiNaC::ex,string,GiNaC::ex_is_less>  alexander_polynomial;  //查阅官方文档给出的给ex排序的方式
 
 // only for open chain
 vector<int> get_gauss_notation(vector<double *> &points)
@@ -106,34 +106,6 @@ vector<int> get_gauss_notation(vector<double *> &points)
         }
     }
     return notation;
-}
-
-void get_alxeander_map(fstream &read)
-{   
-    string knot_type,alex_poly;
-    while ( !read.eof())
-    {
-        read>>knot_type>>alex_poly;
-        GiNaC::ex alex_poly_ex(alex_poly,syms);
-        //cout<<alex_poly_ex<<'\t'<<knot_type<<endl;
-        
-        alexander_polynomial.insert(pair<GiNaC::ex,string>(alex_poly_ex,knot_type));
-        //alexander_polynomial[alex_poly_ex]=knot_type;
-        // if(alexander_polynomial.count(alex_poly_ex)==0)
-        // {
-        //     alexander_polynomial.insert(pair<GiNaC::ex,string>(alex_poly_ex,knot_type));
-        // }
-    }
-}
-
-void print_alexander_map()
-{
-    cout<<alexander_polynomial.size()<<endl;
-    for(auto t=alexander_polynomial.begin();t!=alexander_polynomial.end();t++){
-
-    cout<<t->first<<'\t'<<t->second<<endl;
-
-    }
 }
 
 vector<double *> KMT_open_chain(vector<double *> points)

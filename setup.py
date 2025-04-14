@@ -121,12 +121,12 @@ class CMakeBuild(build_ext):
             ["cmake", ext.sourcedir, *cmake_args], cwd=build_temp, check=True
         )
         subprocess.run(
-            ["cmake", "--build", ".", *build_args], cwd=build_temp, check=True
+            ["cmake", "--build", ".", "-j10",*build_args], cwd=build_temp, check=True
         )
 
 setuptools.setup(
     name="pythonknot",
-    version="0.1.15",
+    version="0.1.15.4",
     author="yjianzhu",
     author_email="yjianzhu@mail.ustc.edu.cn",
     description="pythonknot for knot theory calculation",
@@ -134,7 +134,8 @@ setuptools.setup(
     url="",
     ext_modules=[
         CMakeExtension(name="pythonknot.alexander_poly", sourcedir="src/cpp_module/"),
-        CMakeExtension(name="pythonknot.homfly", sourcedir="src/HOMFLY/")
+        CMakeExtension(name="pythonknot.homfly", sourcedir="src/HOMFLY/"),
+        CMakeExtension(name="pythonknot.pdb_parser", sourcedir="src/pdb_parser/")
     ],
     cmdclass={"build_ext": CMakeBuild},
 

@@ -16,6 +16,7 @@
 #include "knot.h"
 #include "knottype.h"
 #include "myfunction.h"
+#include "knot_alex_table.h" // alexander polynomial table
 
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
@@ -78,6 +79,62 @@ py::array_t<double> read_xyz(const std::string &filename) {
         frames.push_back(frame);
     }
     return atoms_to_numpy(frames);
+}
+
+//TODO 
+void write_xyz(const std::string &filename, py::array_t<double> input) {
+    // Get array info and validate dimensions
+    py::buffer_info buf = input.request();
+    
+    if (buf.ndim != 3) {
+        throw std::runtime_error("Input array must be 3-dimensional");
+    }
+    
+    // Extract dimensions
+    size_t nFrames = buf.shape[0];  // Number of frames
+    size_t nAtoms = buf.shape[1];   // Number of atoms per frame
+    size_t nCoords = buf.shape[2];  // Should be 3 (x,y,z)
+    
+    if (nCoords != 3) {
+        throw std::runtime_error("Last dimension must be 3 (x,y,z coordinates)");
+    }
+    
+    // Get pointer to array data
+    double *ptr = static_cast<double *>(buf.ptr);
+    
+    // Open output file, append mode
+    std::ofstream outfile(filename,std::ios::app);
+    if (!outfile.is_open()) {
+        throw std::runtime_error("Could not open file for writing: " + filename);
+    }
+    
+    // Write each frame
+    for (size_t frame = 0; frame < nFrames; frame++) {
+        // Write number of atoms
+        outfile << nAtoms << "\n";
+        // Write comment line (frame number)
+        outfile << "Frame " << frame + 1 << " of " << nFrames << "\n";
+        
+        // Write atom coordinates
+        for (size_t atom = 0; atom < nAtoms; atom++) {
+            // Calculate base index for current atom
+            size_t base_idx = frame * (nAtoms * 3) + atom * 3;
+            
+            // Write atom line (assuming all atoms are carbon 'C' for simplicity)
+            // Format: element_symbol x y z
+            outfile << "1 "
+                   << std::fixed << std::setprecision(6)
+                   << ptr[base_idx] << " "      // x coordinate
+                   << ptr[base_idx + 1] << " "  // y coordinate
+                   << ptr[base_idx + 2] << "\n"; // z coordinate
+        }
+    }
+    
+    outfile.close();
+    
+    if (outfile.fail()) {
+        throw std::runtime_error("Error occurred while writing file: " + filename);
+    }
 }
 
 std::vector<std::string> calculate_knot_type(const std::string &filename) 
@@ -320,9 +377,20 @@ py::array_t<int> gauss_notation(py::array_t<double> input) {
     return py::array_t<int>(result_data.size(), result_data.data());
 }
 
+void get_alexander_map(std::string filename)
+{
+    std::fstream read;
+    read.open(filename,std::ios::in);
+    get_alexander(read);
+    read.close();
+}
+
 PYBIND11_MODULE(alexander_poly, m) {
     // io part
     m.def("read_xyz", &read_xyz, "Read XYZ file and return a numpy array");
+    m.def("write_xyz", &write_xyz, "Write a numpy array to a XYZ file");
+    m.def("get_alexander_map", &get_alexander_map, "Get alexander map from file");
+    m.def("print_alexander_map", &print_alexander_map, "Print alexander map");
 
     // knot type
     m.doc() = "Module for reading XYZ files with multiple frames and calculating knot type";
