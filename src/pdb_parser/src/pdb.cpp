@@ -350,8 +350,8 @@ PYBIND11_MODULE(pdb_parser, m) {
         .def_readonly("charge", &Atom::charge)
         .def_readonly("frameIdx", &Atom::frameIdx)
         .def("__repr__", [](const Atom& a) {
-            return "<Atom " + std::to_string(a.serial) + ": " + a.name + " (帧: " + 
-                   std::to_string(a.frameIdx) + ", 坐标: " + 
+            return "<Atom " + std::to_string(a.serial) + ": " + a.name + " (Frame: " + 
+                   std::to_string(a.frameIdx) + ", coordinates: " + 
                    std::to_string(a.x) + ", " + std::to_string(a.y) + ", " + 
                    std::to_string(a.z) + ")>";
         });

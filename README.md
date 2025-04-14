@@ -51,6 +51,20 @@ import pythonknot.homfly as homfly
 crossing_number, homflr_poly = homfly.homfly_str(positions[0])  # position should be N_atom*3 array
 ```
 
+### 3.2 pdb parser
+load pdb trajectory, return the position of the atoms in the pdb file
+```python
+import pythonknot.pdb_parser as pdb_parser
+
+import pythonknot.pdb_parser as pdb_parser
+
+mypdb = pdb_parser.PDBParser()
+mypdb.load('output.pdb')
+
+traj = mypdb.get_all_frame_coordinates()    # with shape (N_frame, N_atom, 3)
+print(traj.shape)
+```
+
 ### Development
 
 KMT algorithm, simplify the configuration of the polymer chain, return the simplified chain and the knot type of the chain
