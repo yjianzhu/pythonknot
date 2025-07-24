@@ -22,3 +22,5 @@ deactivate
 
 
 # auditwheel repair --plat manylinux2014_x86_64 dist/*
+# upload to PyPI
+# twine upload wheelhouse/*0.1.15.4*.whl
