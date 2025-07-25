@@ -19,11 +19,11 @@ only support python 3.8 or later
     positions = alexander_poly.read_xyz("test/traj_knot31_L300_close.txt")
     print(positions.shape)
     # calculate the knot type for ring polymer
-    knottype = alexander_poly.calculate_knot_type(positions)
+    knottype = alexander_poly.calculate_knot_type(positions, "ring")
     print(len(knottype))    
 
     # calculate the knot type for open polymer
-    knottype = alexander_poly.calculate_knot_type_open_chain(positions)
+    knottype = alexander_poly.calculate_knot_type(positions, "open")
 
 
     ## calculate the knot size for ring polymer

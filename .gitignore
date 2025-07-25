@@ -11,3 +11,4 @@ src/cpp_module/ginac/install
 pythonenv*
 test/
 wheelhouse/
+docker_compile.md
