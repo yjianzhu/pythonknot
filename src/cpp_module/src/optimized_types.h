@@ -10,6 +10,7 @@
 #include <cstring>
 #include <cstdint>
 #include <thread>
+#include <mutex>
 #include <cmath>
 
 // 包含 pybind11 头文件
@@ -126,17 +127,19 @@ public:
     }
 };
 
-// 结果缓存类，避免重复计算
+// 结果缓存类，避免重复计算 - 线程安全版本
 template<typename Key, typename Value>
 class ResultCache {
 private:
     std::map<Key, Value> cache;
     size_t max_size;
+    mutable std::mutex cache_mutex; // 添加互斥锁保护
     
 public:
     explicit ResultCache(size_t max_cache_size = 1000) : max_size(max_cache_size) {}
     
-    bool get(const Key& key, Value& value) {
+    bool get(const Key& key, Value& value) const {
+        std::lock_guard<std::mutex> lock(cache_mutex);
         auto it = cache.find(key);
         if (it != cache.end()) {
             value = it->second;
@@ -146,15 +149,40 @@ public:
     }
     
     void put(const Key& key, const Value& value) {
-        if (cache.size() >= max_size) {
-            // 简单的LRU策略：删除第一个元素
-            cache.erase(cache.begin());
+        std::lock_guard<std::mutex> lock(cache_mutex);
+        
+        // 如果key已存在，直接更新
+        auto it = cache.find(key);
+        if (it != cache.end()) {
+            it->second = value;
+            return;
         }
+        
+        // 如果缓存已满，清理一些旧条目（更安全的方式）
+        if (cache.size() >= max_size) {
+            // 删除前25%的条目，而不是只删除一个
+            size_t to_remove = std::max(size_t(1), max_size / 4);
+            auto remove_it = cache.begin();
+            for (size_t i = 0; i < to_remove && remove_it != cache.end(); ++i) {
+                auto next_it = std::next(remove_it);
+                cache.erase(remove_it);
+                remove_it = next_it;
+            }
+        }
+        
+        // 插入新条目
         cache[key] = value;
     }
     
-    void clear() { cache.clear(); }
-    size_t size() const { return cache.size(); }
+    void clear() { 
+        std::lock_guard<std::mutex> lock(cache_mutex);
+        cache.clear(); 
+    }
+    
+    size_t size() const { 
+        std::lock_guard<std::mutex> lock(cache_mutex);
+        return cache.size(); 
+    }
 };
 
 // 分支预测优化宏

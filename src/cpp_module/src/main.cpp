@@ -127,8 +127,8 @@ std::vector<std::string> calculate_knot_type_simd(py::array_t<double> input, con
     // 使用BatchResultBuilder优化结果构建
     OptimizedUtils::pybind_optimized::BatchResultBuilder<std::string> result_builder(array_info.nFrames);
     
-    // 获取缓存实例 - 使用线程局部存储避免竞争条件
-    thread_local static ResultCache<size_t, std::string> cache(500);
+    // 获取缓存实例 - 现在使用线程安全的缓存
+    static ResultCache<size_t, std::string> cache(500);
     
     const bool is_ring = (chain_type == "ring");
     
@@ -326,8 +326,8 @@ std::vector<std::string> calculate_knot_type(py::array_t<double> input, const st
         throw std::runtime_error("Invalid chain_type. Expected 'ring' or 'open'.");
     }
 
-    // 获取缓存实例 - 使用线程局部存储避免竞争条件
-    thread_local static ResultCache<size_t, std::string> cache(500); // 缓存500个结果
+    // 获取缓存实例 - 现在使用线程安全的缓存
+    static ResultCache<size_t, std::string> cache(500); // 缓存500个结果
     
     // 处理每一帧
     for (ssize_t i = 0; i < nFrames; i++) {
@@ -404,9 +404,9 @@ std::pair<std::vector<std::string>, std::vector<std::array<int,3>>> calculate_kn
     result_knottype.reserve(nFrames);
     result_knotsize.reserve(nFrames);
 
-    // 获取缓存实例 - 分别为knottype和knotsize缓存，使用线程局部存储
-    thread_local static ResultCache<size_t, std::string> type_cache(500);
-    thread_local static ResultCache<size_t, std::array<int,3>> size_cache(500);
+    // 获取缓存实例 - 分别为knottype和knotsize缓存，现在使用线程安全的缓存
+    static ResultCache<size_t, std::string> type_cache(500);
+    static ResultCache<size_t, std::array<int,3>> size_cache(500);
     
     // 批处理优化：一次处理多帧以提高缓存效率
     const bool is_ring = (chain_type == "ring");
@@ -591,8 +591,8 @@ std::vector<std::string> calculate_knot_type_parallel(py::array_t<double> input,
     // 预分配结果向量
     std::vector<std::string> result_knottype(array_info.nFrames);
     
-    // 获取缓存实例 - 使用线程局部存储避免竞争条件
-    thread_local static ResultCache<size_t, std::string> cache(1000);
+    // 获取缓存实例 - 现在使用线程安全的缓存
+    static ResultCache<size_t, std::string> cache(1000);
     
     // 确定是否值得并行化
     const size_t min_frames_for_parallel = 4;
