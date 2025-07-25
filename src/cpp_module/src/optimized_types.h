@@ -12,6 +12,11 @@
 #include <thread>
 #include <cmath>
 
+// 包含 pybind11 头文件
+#include <pybind11/pybind11.h>
+#include <pybind11/numpy.h>
+#include <pybind11/stl.h>
+
 // SIMD支持检测和包含
 #if defined(__SSE2__) || defined(_M_X64) || (defined(_M_IX86_FP) && _M_IX86_FP >= 2)
     #define ENABLE_SSE2
@@ -555,15 +560,15 @@ namespace OptimizedUtils {
     
     // pybind11绑定优化工具
     namespace pybind_optimized {
-        // 前向声明（避免头文件依赖）
+        // 现在可以直接使用 pybind11 命名空间
         namespace py = pybind11;
         
         // 快速numpy数组信息提取（避免重复buffer_info调用）
         struct FastArrayInfo {
             double* data;
-            ssize_t nFrames;
-            ssize_t nAtoms;
-            ssize_t nDimension;
+            py::ssize_t nFrames;
+            py::ssize_t nAtoms;
+            py::ssize_t nDimension;
             
             explicit FastArrayInfo(py::array_t<double>& input) {
                 py::buffer_info info = input.request();
