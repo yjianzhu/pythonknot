@@ -260,6 +260,11 @@ namespace OptimizedUtils {
             const double* points1, const double* points2, 
             double* distances, size_t count) {
             
+            // 添加空指针和大小检查
+            if (UNLIKELY(!points1 || !points2 || !distances || count == 0)) {
+                return;
+            }
+            
 #ifdef ENABLE_AVX
             // AVX优化版本：处理连续的3D点对
             const size_t points_per_batch = 2; // 每批处理2个3D点 (6个double)
@@ -268,7 +273,24 @@ namespace OptimizedUtils {
             for (size_t batch = 0; batch < avx_batches; ++batch) {
                 const size_t base_idx = batch * points_per_batch;
                 
-                // 加载2个3D点的坐标 (6个double)
+                // 确保不会越界访问
+                if (UNLIKELY(base_idx + 1 >= count)) break;
+                
+                // 加载2个3D点的坐标 (6个double) - 添加边界检查
+                const size_t max_idx = (base_idx + 1) * 3 + 2;
+                if (UNLIKELY(max_idx >= count * 3)) {
+                    // 回退到标量处理剩余数据
+                    for (size_t i = base_idx; i < count; ++i) {
+                        const double* p1 = &points1[i * 3];
+                        const double* p2 = &points2[i * 3];  
+                        const double dx = p1[0] - p2[0];
+                        const double dy = p1[1] - p2[1];
+                        const double dz = p1[2] - p2[2];
+                        distances[i] = dx*dx + dy*dy + dz*dz;
+                    }
+                    break;
+                }
+                
                 __m256d p1_data = _mm256_loadu_pd(&points1[base_idx * 3]);     // x1,y1,z1,x2
                 __m256d p1_extra = _mm256_loadu_pd(&points1[base_idx * 3 + 2]); // z1,x2,y2,z2
                 __m256d p2_data = _mm256_loadu_pd(&points2[base_idx * 3]);     // x1,y1,z1,x2
@@ -347,6 +369,11 @@ namespace OptimizedUtils {
             const double* vectors1, const double* vectors2,
             double* results, size_t count) {
             
+            // 添加空指针和大小检查
+            if (UNLIKELY(!vectors1 || !vectors2 || !results || count == 0)) {
+                return;
+            }
+            
 #ifdef ENABLE_AVX
             // AVX版本：每次处理2个3D向量
             const size_t vectors_per_batch = 2;
@@ -354,6 +381,20 @@ namespace OptimizedUtils {
             
             for (size_t batch = 0; batch < avx_batches; ++batch) {
                 const size_t base_idx = batch * vectors_per_batch;
+                
+                // 边界检查
+                if (UNLIKELY(base_idx + 1 >= count)) break;
+                
+                const size_t max_idx = (base_idx + 1) * 3 + 2;
+                if (UNLIKELY(max_idx >= count * 3)) {
+                    // 回退到标量处理
+                    for (size_t i = base_idx; i < count; ++i) {
+                        const double* v1 = &vectors1[i * 3];
+                        const double* v2 = &vectors2[i * 3];
+                        results[i] = v1[0]*v2[0] + v1[1]*v2[1] + v1[2]*v2[2];
+                    }
+                    break;
+                }
                 
                 // 加载向量数据
                 __m256d v1_data = _mm256_loadu_pd(&vectors1[base_idx * 3]);
@@ -413,6 +454,11 @@ namespace OptimizedUtils {
         FORCE_INLINE void vectorizedMagnitude(
             const double* vectors, double* magnitudes, size_t count) {
             
+            // 添加空指针和大小检查
+            if (UNLIKELY(!vectors || !magnitudes || count == 0)) {
+                return;
+            }
+            
 #ifdef ENABLE_AVX
             // AVX版本
             const size_t vectors_per_batch = 2;
@@ -420,6 +466,19 @@ namespace OptimizedUtils {
             
             for (size_t batch = 0; batch < avx_batches; ++batch) {
                 const size_t base_idx = batch * vectors_per_batch;
+                
+                // 边界检查
+                if (UNLIKELY(base_idx + 1 >= count)) break;
+                
+                const size_t max_idx = (base_idx + 1) * 3 + 2;
+                if (UNLIKELY(max_idx >= count * 3)) {
+                    // 回退到标量处理
+                    for (size_t i = base_idx; i < count; ++i) {
+                        const double* v = &vectors[i * 3];
+                        magnitudes[i] = std::sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]);
+                    }
+                    break;
+                }
                 
                 __m256d v_data = _mm256_loadu_pd(&vectors[base_idx * 3]);
                 __m256d v_extra = _mm256_loadu_pd(&vectors[base_idx * 3 + 2]);
@@ -454,6 +513,11 @@ namespace OptimizedUtils {
         
         // SIMD优化的向量归一化
         FORCE_INLINE void vectorizedNormalize(double* vectors, size_t count) {
+            // 添加空指针和大小检查
+            if (UNLIKELY(!vectors || count == 0)) {
+                return;
+            }
+            
             // 先计算模长
             std::vector<double> magnitudes(count);
             vectorizedMagnitude(vectors, magnitudes.data(), count);
