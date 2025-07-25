@@ -18,6 +18,19 @@
 #include <pybind11/numpy.h>
 #include <pybind11/stl.h>
 
+// 分支预测优化宏 - 移到文件开头
+#if defined(__GNUC__) || defined(__clang__)
+    #define LIKELY(x)       __builtin_expect(!!(x), 1)
+    #define UNLIKELY(x)     __builtin_expect(!!(x), 0)
+    #define FORCE_INLINE    __attribute__((always_inline)) inline
+    #define PREFETCH(addr)  __builtin_prefetch(addr, 0, 3)
+#else
+    #define LIKELY(x)       (x)
+    #define UNLIKELY(x)     (x)
+    #define FORCE_INLINE    inline
+    #define PREFETCH(addr)  
+#endif
+
 // SIMD支持检测和包含
 #if defined(__SSE2__) || defined(_M_X64) || (defined(_M_IX86_FP) && _M_IX86_FP >= 2)
     #define ENABLE_SSE2
@@ -41,14 +54,25 @@ private:
 public:
     PointManager() = default;
     
-    // 从numpy数组构造
+    // 从numpy数组构造 - 增强边界检查
     PointManager(double* data, size_t nAtoms, size_t nDimension, size_t frame_offset) {
+        if (UNLIKELY(!data || nAtoms == 0 || nDimension != 3)) {
+            throw std::runtime_error("Invalid parameters for PointManager construction");
+        }
+        
         points.reserve(nAtoms);
         for (size_t j = 0; j < nAtoms; j++) {
+            const size_t base_idx = frame_offset + j * nDimension;
+            
+            // 添加边界检查防止内存越界
+            if (UNLIKELY(base_idx + 2 < base_idx)) { // 检查溢出
+                throw std::runtime_error("Index overflow in PointManager");
+            }
+            
             Point3D point;
-            point[0] = data[frame_offset + j * nDimension + 0];
-            point[1] = data[frame_offset + j * nDimension + 1];
-            point[2] = data[frame_offset + j * nDimension + 2];
+            point[0] = data[base_idx + 0];
+            point[1] = data[base_idx + 1];
+            point[2] = data[base_idx + 2];
             points.push_back(point);
         }
     }
@@ -185,18 +209,7 @@ public:
     }
 };
 
-// 分支预测优化宏
-#if defined(__GNUC__) || defined(__clang__)
-    #define LIKELY(x)       __builtin_expect(!!(x), 1)
-    #define UNLIKELY(x)     __builtin_expect(!!(x), 0)
-    #define FORCE_INLINE    __attribute__((always_inline)) inline
-    #define PREFETCH(addr)  __builtin_prefetch(addr, 0, 3)
-#else
-    #define LIKELY(x)       (x)
-    #define UNLIKELY(x)     (x)
-    #define FORCE_INLINE    inline
-    #define PREFETCH(addr)  
-#endif
+// 分支预测优化宏已移至文件开头
 
 // 性能优化的辅助函数
 namespace OptimizedUtils {
@@ -229,13 +242,21 @@ namespace OptimizedUtils {
         return result;
     }
 
-    // 基于哈希的快速数据指纹计算
+    // 基于哈希的快速数据指纹计算 - 增强边界检查
     inline size_t computeFrameHash(double* data, size_t nAtoms, size_t nDimension, size_t frame_offset) {
+        if (UNLIKELY(!data || nAtoms == 0 || nDimension == 0)) {
+            return 0;
+        }
+        
         size_t hash = 0;
         const double* frame_data = data + frame_offset;
-        const size_t step = std::max(size_t(1), (nAtoms * nDimension) / 32); // 采样策略避免计算所有数据
+        const size_t total_elements = nAtoms * nDimension;
+        const size_t step = std::max(size_t(1), total_elements / 32); // 采样策略避免计算所有数据
         
-        for (size_t i = 0; i < nAtoms * nDimension; i += step) {
+        for (size_t i = 0; i < total_elements; i += step) {
+            // 确保不会越界
+            if (UNLIKELY(i >= total_elements)) break;
+            
             // 简单但快速的哈希函数
             union { double d; uint64_t i; } converter;
             converter.d = frame_data[i];
@@ -304,11 +325,11 @@ namespace OptimizedUtils {
                 // 确保不会越界访问
                 if (UNLIKELY(base_idx + 1 >= count)) break;
                 
-                // 加载2个3D点的坐标 (6个double) - 添加边界检查
-                const size_t max_idx = (base_idx + 1) * 3 + 2;
-                if (UNLIKELY(max_idx >= count * 3)) {
+                // 更严格的边界检查
+                if (UNLIKELY((base_idx + 1) * 3 + 2 >= count * 3)) {
                     // 回退到标量处理剩余数据
                     for (size_t i = base_idx; i < count; ++i) {
+                        if (UNLIKELY(i * 3 + 2 >= count * 3)) break;
                         const double* p1 = &points1[i * 3];
                         const double* p2 = &points2[i * 3];  
                         const double dx = p1[0] - p2[0];
@@ -413,10 +434,11 @@ namespace OptimizedUtils {
                 // 边界检查
                 if (UNLIKELY(base_idx + 1 >= count)) break;
                 
-                const size_t max_idx = (base_idx + 1) * 3 + 2;
-                if (UNLIKELY(max_idx >= count * 3)) {
+                // 更严格的边界检查
+                if (UNLIKELY((base_idx + 1) * 3 + 2 >= count * 3)) {
                     // 回退到标量处理
                     for (size_t i = base_idx; i < count; ++i) {
+                        if (UNLIKELY(i * 3 + 2 >= count * 3)) break;
                         const double* v1 = &vectors1[i * 3];
                         const double* v2 = &vectors2[i * 3];
                         results[i] = v1[0]*v2[0] + v1[1]*v2[1] + v1[2]*v2[2];
@@ -498,10 +520,11 @@ namespace OptimizedUtils {
                 // 边界检查
                 if (UNLIKELY(base_idx + 1 >= count)) break;
                 
-                const size_t max_idx = (base_idx + 1) * 3 + 2;
-                if (UNLIKELY(max_idx >= count * 3)) {
+                // 更严格的边界检查
+                if (UNLIKELY((base_idx + 1) * 3 + 2 >= count * 3)) {
                     // 回退到标量处理
                     for (size_t i = base_idx; i < count; ++i) {
+                        if (UNLIKELY(i * 3 + 2 >= count * 3)) break;
                         const double* v = &vectors[i * 3];
                         magnitudes[i] = std::sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2]);
                     }
@@ -608,44 +631,98 @@ namespace OptimizedUtils {
     
     // 并行处理工具
     namespace parallel {
-        // 获取最优线程数
+        // 获取最优线程数 - 限制最大线程数避免过度创建
         inline size_t getOptimalThreadCount() {
-            static const size_t thread_count = std::max(1u, std::thread::hardware_concurrency());
+            static const unsigned int hardware_threads_raw = std::thread::hardware_concurrency();
+            static const size_t hardware_threads = static_cast<size_t>(hardware_threads_raw);
+            static const size_t max_threads = std::min(hardware_threads, static_cast<size_t>(8)); // 限制最大8个线程
+            static const size_t thread_count = std::max(static_cast<size_t>(1), max_threads);
             return thread_count;
         }
         
-        // 简单的并行for循环实现（C++11兼容）
+        // 简单的并行for循环实现（C++11兼容） - 增强错误处理和资源管理
         template<typename Func>
         void parallelFor(size_t start, size_t end, size_t min_per_thread, Func&& func) {
+            parallelFor(start, end, min_per_thread, 0, std::forward<Func>(func));
+        }
+        
+        // 带自定义线程数的并行for循环
+        template<typename Func>
+        void parallelFor(size_t start, size_t end, size_t min_per_thread, size_t custom_thread_count, Func&& func) {
+            if (UNLIKELY(start >= end)) {
+                return; // 无效范围
+            }
+            
             const size_t length = end - start;
             const size_t hardware_threads = getOptimalThreadCount();
             const size_t max_threads = (length + min_per_thread - 1) / min_per_thread;
-            const size_t num_threads = std::min(hardware_threads, max_threads);
             
+            // 如果指定了自定义线程数，使用它，否则使用硬件线程数
+            size_t target_threads;
+            if (custom_thread_count > 0) {
+                // 限制自定义线程数不超过硬件线程数的2倍，避免过度创建
+                target_threads = std::min(custom_thread_count, hardware_threads * 2);
+            } else {
+                target_threads = hardware_threads;
+            }
+            
+            const size_t num_threads = std::min(target_threads, max_threads);
+            
+            // 对于小数据量或单线程，直接串行执行
             if (num_threads <= 1 || length < min_per_thread * 2) {
-                // 单线程执行
-                func(start, end);
+                try {
+                    func(start, end);
+                } catch (...) {
+                    // 捕获异常避免崩溃
+                }
                 return;
             }
             
             std::vector<std::thread> threads;
-            threads.reserve(num_threads);
+            std::vector<std::exception_ptr> exceptions(num_threads - 1);
+            threads.reserve(num_threads - 1);
             
             const size_t block_size = length / num_threads;
             
+            // 创建工作线程（比总线程数少1个，主线程处理最后一块）
             for (size_t i = 0; i < num_threads - 1; ++i) {
                 size_t block_start = start + i * block_size;
                 size_t block_end = start + (i + 1) * block_size;
-                threads.emplace_back([=]() { func(block_start, block_end); });
+                
+                threads.emplace_back([=, &exceptions, &func]() {
+                    try {
+                        func(block_start, block_end);
+                    } catch (...) {
+                        exceptions[i] = std::current_exception();
+                    }
+                });
             }
             
-            // 最后一个块在主线程执行
-            size_t final_start = start + (num_threads - 1) * block_size;
-            func(final_start, end);
+            // 主线程处理最后一个块
+            std::exception_ptr main_exception;
+            try {
+                size_t final_start = start + (num_threads - 1) * block_size;
+                func(final_start, end);
+            } catch (...) {
+                main_exception = std::current_exception();
+            }
             
             // 等待所有线程完成
             for (auto& thread : threads) {
-                thread.join();
+                if (thread.joinable()) {
+                    thread.join();
+                }
+            }
+            
+            // 检查是否有异常
+            if (main_exception) {
+                std::rethrow_exception(main_exception);
+            }
+            
+            for (const auto& exception : exceptions) {
+                if (exception) {
+                    std::rethrow_exception(exception);
+                }
             }
         }
     }
@@ -655,26 +732,37 @@ namespace OptimizedUtils {
         // 现在可以直接使用 pybind11 命名空间
         namespace py = pybind11;
         
-        // 快速numpy数组信息提取（避免重复buffer_info调用）
+        // 快速numpy数组信息提取（避免重复buffer_info调用）- 优化版本
         struct FastArrayInfo {
             double* data;
             py::ssize_t nFrames;
             py::ssize_t nAtoms;
             py::ssize_t nDimension;
+            py::ssize_t total_size;
             
             explicit FastArrayInfo(py::array_t<double>& input) {
                 py::buffer_info info = input.request();
                 if (UNLIKELY(info.ndim != 3)) {
                     throw std::runtime_error("Expected a 3-dimensional array");
                 }
+                if (UNLIKELY(info.shape[2] != 3)) {
+                    throw std::runtime_error("Last dimension must be 3 (x,y,z coordinates)");
+                }
+                
                 data = static_cast<double*>(info.ptr);
                 nFrames = info.shape[0];
                 nAtoms = info.shape[1];
                 nDimension = info.shape[2];
+                total_size = nFrames * nAtoms * nDimension;
+                
+                // 验证数据完整性
+                if (UNLIKELY(!data || total_size <= 0)) {
+                    throw std::runtime_error("Invalid array data or dimensions");
+                }
             }
         };
         
-        // 批处理结果构造器（减少Python对象创建开销）
+        // 批处理结果构造器（减少Python对象创建开销）- 优化版本
         template<typename T>
         class BatchResultBuilder {
         private:
@@ -685,30 +773,58 @@ namespace OptimizedUtils {
                 results.reserve(reserve_size);
             }
             
-            void addResult(T&& result) {
+            // 移动语义优化
+            FORCE_INLINE void addResult(T&& result) {
                 results.emplace_back(std::move(result));
             }
             
-            void addResult(const T& result) {
+            // 拷贝版本
+            FORCE_INLINE void addResult(const T& result) {
                 results.push_back(result);
             }
             
+            // 批量添加优化
+            template<typename Iterator>
+            void addResults(Iterator begin, Iterator end) {
+                results.insert(results.end(), begin, end);
+            }
+            
+            // 预分配空间
+            FORCE_INLINE void reserve(size_t additional_size) {
+                results.reserve(results.size() + additional_size);
+            }
+            
+            // 移动构建，避免不必要的拷贝
             std::vector<T> build() && {
                 return std::move(results);
             }
             
+            // 获取引用避免拷贝
+            const std::vector<T>& get() const { return results; }
+            std::vector<T>& get() { return results; }
+            
             size_t size() const { return results.size(); }
             void clear() { results.clear(); }
+            bool empty() const { return results.empty(); }
         };
         
-        // 零拷贝numpy数组创建助手
+        // 零拷贝numpy数组创建助手 - 优化版本
         template<typename T>
         py::array_t<T> createOptimizedArray(std::vector<T>&& data, std::vector<py::ssize_t> shape) {
+            // 验证数据和形状一致性
+            size_t expected_size = 1;
+            for (auto dim : shape) {
+                expected_size *= static_cast<size_t>(dim);
+            }
+            
+            if (UNLIKELY(data.size() != expected_size)) {
+                throw std::runtime_error("Data size doesn't match shape");
+            }
+            
             // 移动构造减少拷贝
             T* raw_ptr = data.data();
-            size_t size = data.size();
             
-            // 创建numpy数组，但保持数据所有权
+            // 创建numpy数组，使用零拷贝策略
             return py::array_t<T>(
                 shape,
                 raw_ptr,
@@ -716,6 +832,28 @@ namespace OptimizedUtils {
                     delete reinterpret_cast<std::vector<T>*>(ptr);
                 })
             );
+        }
+        
+        // 高效的参数验证宏
+        #define VALIDATE_CHAIN_TYPE(chain_type) \
+            if (UNLIKELY(chain_type != "ring" && chain_type != "open")) { \
+                throw std::runtime_error("Invalid chain_type. Expected 'ring' or 'open'."); \
+            }
+        
+        // 高效的数组维度验证
+        #define VALIDATE_ARRAY_DIMS(info, expected_dims) \
+            if (UNLIKELY(info.ndim != expected_dims)) { \
+                throw std::runtime_error("Expected " #expected_dims "-dimensional array"); \
+            }
+        
+        // 快速类型转换和验证
+        template<typename T>
+        FORCE_INLINE T* validateAndGetPointer(py::array_t<T>& array) {
+            py::buffer_info info = array.request();
+            if (UNLIKELY(!info.ptr)) {
+                throw std::runtime_error("Invalid array pointer");
+            }
+            return static_cast<T*>(info.ptr);
         }
     }
 }

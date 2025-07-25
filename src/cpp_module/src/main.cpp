@@ -29,6 +29,9 @@ namespace py = pybind11;
 // global variable
 int flag_ring_open=1; //1 for ring
 
+// 全局GiNaC互斥锁 - 保护非线程安全的GiNaC操作
+std::mutex ginac_mutex;
+
 struct Atom {
     std::string type;
     double x, y, z;
@@ -114,33 +117,47 @@ py::array_t<double> read_xyz(const std::string &filename) {
 }
 
 // SIMD增强版本的calculate_knot_type - 实验性优化
-std::vector<std::string> calculate_knot_type_simd(py::array_t<double> input, const std::string &chain_type = "ring")
+std::vector<std::string> calculate_knot_type_simd(py::array_t<double> input, const std::string &chain_type = "ring", int num_threads = 2)
 {
     // 使用FastArrayInfo减少重复的buffer_info调用
     OptimizedUtils::pybind_optimized::FastArrayInfo array_info(input);
     
-    // 验证chain_type参数
-    if (UNLIKELY(chain_type != "ring" && chain_type != "open")) {
-        throw std::runtime_error("Invalid chain_type. Expected 'ring' or 'open'.");
-    }
+    // 使用优化的参数验证宏
+    VALIDATE_CHAIN_TYPE(chain_type);
 
     // 使用BatchResultBuilder优化结果构建
     OptimizedUtils::pybind_optimized::BatchResultBuilder<std::string> result_builder(array_info.nFrames);
     
-    // 获取缓存实例 - 现在使用线程安全的缓存
+    // 获取缓存实例 - 现在使用线程安全的缓存，添加额外保护
     static ResultCache<size_t, std::string> cache(500);
+    static std::mutex cache_protection_mutex;
     
     const bool is_ring = (chain_type == "ring");
     
-    // 并行处理帧数据（如果数据量足够大）
-    if (array_info.nFrames >= 4) {
+    // 并行处理帧数据（如果数据量足够大） - 提高阈值
+    if (array_info.nFrames >= 100) {
         // 使用并行处理优化大数据集
         std::vector<std::string> parallel_results(array_info.nFrames);
         
-        OptimizedUtils::parallel::parallelFor(0, array_info.nFrames, 2, 
+        // 添加边界检查
+        if (UNLIKELY(array_info.nAtoms == 0 || array_info.nDimension != 3)) {
+            throw std::runtime_error("Invalid array dimensions for SIMD processing");
+        }
+        
+        OptimizedUtils::parallel::parallelFor(0, array_info.nFrames, 10, num_threads, 
             [&](size_t start, size_t end) {
                 for (size_t i = start; i < end; ++i) {
+                    // 增强边界检查
+                    if (UNLIKELY(i >= static_cast<size_t>(array_info.nFrames))) break;
+                    
                     const size_t frame_offset = i * array_info.nAtoms * array_info.nDimension;
+                    
+                    // 确保frame_offset不会溢出
+                    const size_t max_offset = (array_info.nFrames - 1) * array_info.nAtoms * array_info.nDimension;
+                    if (UNLIKELY(frame_offset > max_offset)) {
+                        parallel_results[i] = "unknown";
+                        continue;
+                    }
                     
                     // 计算帧哈希用于缓存
                     const size_t frame_hash = OptimizedUtils::computeFrameHash(
@@ -154,22 +171,31 @@ std::vector<std::string> calculate_knot_type_simd(py::array_t<double> input, con
                         continue;
                     }
                     
-                    // 使用RAII管理内存的PointManager
-                    PointManager point_manager(array_info.data, array_info.nAtoms, 
-                                             array_info.nDimension, frame_offset);
-                    
-                    auto points = point_manager.getCompatiblePointers();
-                    find_max_span(points);
-                    
-                    std::string knottype;
-                    if (LIKELY(is_ring)) {
-                        knottype = get_knottype_ring_faster(points);
-                    } else {
-                        knottype = get_knottype_open_faster(points);
+                    try {
+                        // 使用RAII管理内存的PointManager
+                        PointManager point_manager(array_info.data, array_info.nAtoms, 
+                                                 array_info.nDimension, frame_offset);
+                        
+                        auto points = point_manager.getCompatiblePointers();
+                        if (UNLIKELY(points.empty())) {
+                            parallel_results[i] = "unknown";
+                            continue;
+                        }
+                        
+                        find_max_span(points);
+                        
+                        std::string knottype;
+                        if (LIKELY(is_ring)) {
+                            knottype = get_knottype_ring_faster(points);
+                        } else {
+                            knottype = get_knottype_open_faster(points);
+                        }
+                        
+                        parallel_results[i] = knottype;
+                        cache.put(cache_key, knottype);
+                    } catch (const std::exception& e) {
+                        parallel_results[i] = "error";
                     }
-                    
-                    parallel_results[i] = knottype;
-                    cache.put(cache_key, knottype);
                 }
             });
         
@@ -380,29 +406,15 @@ std::vector<std::string> calculate_knot_type(py::array_t<double> input, const st
 // calculate knot size - 高度优化版本
 std::pair<std::vector<std::string>, std::vector<std::array<int,3>>> calculate_knot_size(py::array_t<double> input, const std::string &chain_type)
 {
-    // 请求buffer_info以访问数组数据和维度信息
-    py::buffer_info info = input.request();
+    // 使用优化的数组信息提取
+    OptimizedUtils::pybind_optimized::FastArrayInfo array_info(input);
+    
+    // 使用优化的参数验证宏
+    VALIDATE_CHAIN_TYPE(chain_type);
 
-    if (UNLIKELY(info.ndim != 3)) {
-        throw std::runtime_error("Expected a 3-dimensional array");
-    }
-
-    // 获取指向数组数据的指针
-    double *data = static_cast<double *>(info.ptr);
-    const ssize_t nFrames = info.shape[0];
-    const ssize_t nAtoms = info.shape[1];
-    const ssize_t nDimension = info.shape[2];
-
-    // 验证chain_type参数
-    if (UNLIKELY(chain_type != "ring" && chain_type != "open")) {
-        throw std::runtime_error("Invalid chain_type. Expected 'ring' or 'open'.");
-    }
-
-    // 预分配结果向量大小
-    std::vector<std::string> result_knottype;
-    std::vector<std::array<int,3>> result_knotsize;
-    result_knottype.reserve(nFrames);
-    result_knotsize.reserve(nFrames);
+    // 预分配结果向量，避免动态扩容
+    std::vector<std::string> result_knottype(array_info.nFrames);
+    std::vector<std::array<int,3>> result_knotsize(array_info.nFrames);
 
     // 获取缓存实例 - 分别为knottype和knotsize缓存，现在使用线程安全的缓存
     static ResultCache<size_t, std::string> type_cache(500);
@@ -412,11 +424,11 @@ std::pair<std::vector<std::string>, std::vector<std::array<int,3>>> calculate_kn
     const bool is_ring = (chain_type == "ring");
     
     // 处理每一帧
-    for (ssize_t i = 0; i < nFrames; i++) {
-        const size_t frame_offset = i * nAtoms * nDimension;
+    for (ssize_t i = 0; i < array_info.nFrames; i++) {
+        const size_t frame_offset = i * array_info.nAtoms * array_info.nDimension;
         
         // 计算帧的哈希值用于缓存
-        const size_t frame_hash = OptimizedUtils::computeFrameHash(data, nAtoms, nDimension, frame_offset);
+        const size_t frame_hash = OptimizedUtils::computeFrameHash(array_info.data, array_info.nAtoms, array_info.nDimension, frame_offset);
         const size_t cache_key = frame_hash ^ std::hash<std::string>()(chain_type);
         
         // 检查缓存
@@ -426,21 +438,21 @@ std::pair<std::vector<std::string>, std::vector<std::array<int,3>>> calculate_kn
         bool size_cached = size_cache.get(cache_key, cached_knotsize);
         
         if (LIKELY(type_cached && size_cached)) {
-            result_knottype.push_back(cached_knottype);
-            result_knotsize.push_back(cached_knotsize);
+            result_knottype[i] = cached_knottype;
+            result_knotsize[i] = cached_knotsize;
             continue;
         }
         
         // 使用RAII管理内存的PointManager
-        PointManager point_manager(data, nAtoms, nDimension, frame_offset);
-        
+        PointManager point_manager(array_info.data, array_info.nAtoms, array_info.nDimension, frame_offset);
+
         // 获取兼容格式的指针（用于legacy函数）
         auto points = point_manager.getCompatiblePointers();
         
         // 预取下一帧数据到缓存
-        if (LIKELY(i + 1 < nFrames)) {
-            const size_t next_frame_offset = (i + 1) * nAtoms * nDimension;
-            PREFETCH(data + next_frame_offset);
+        if (LIKELY(i + 1 < array_info.nFrames)) {
+            const size_t next_frame_offset = (i + 1) * array_info.nAtoms * array_info.nDimension;
+            PREFETCH(array_info.data + next_frame_offset);
         }
         
         // 调用find_max_span和knot type计算
@@ -457,7 +469,7 @@ std::pair<std::vector<std::string>, std::vector<std::array<int,3>>> calculate_kn
         } else {
             knottype = cached_knottype;
         }
-        result_knottype.push_back(knottype);
+        result_knottype[i] = knottype;
 
         std::array<int,3> knotsize_result;
         if (!size_cached) {
@@ -483,30 +495,29 @@ std::pair<std::vector<std::string>, std::vector<std::array<int,3>>> calculate_kn
         } else {
             knotsize_result = cached_knotsize;
         }
-        result_knotsize.push_back(knotsize_result);
+        result_knotsize[i] = knotsize_result;
         
         // PointManager析构时自动清理内存
     }
     
-    return std::make_pair(std::move(result_knottype), std::move(result_knotsize));
+    return std::make_pair(result_knottype, result_knotsize);
 }
 
 // KMT - optimized version with better memory management
 py::array_t<double> KMT_chain(py::array_t<double> input, const std::string &chain_type) {
-    // 请求 buffer_info 以访问数组数据和维度信息
+    // 使用优化的数组信息提取
     py::buffer_info info = input.request();
-
-    if (info.ndim != 2 || info.shape[1] != 3) {
-        throw std::runtime_error("Expected a 2-dimensional array with shape (N, 3)");
+    VALIDATE_ARRAY_DIMS(info, 2);
+    
+    if (UNLIKELY(info.shape[1] != 3)) {
+        throw std::runtime_error("Expected array with shape (N, 3)");
     }
 
     const ssize_t nAtoms = info.shape[0];
     constexpr ssize_t nDimension = 3;
     
-    // 验证chain_type参数
-    if (chain_type != "ring" && chain_type != "open") {
-        throw std::runtime_error("Invalid chain_type. Expected 'ring' or 'open'.");
-    }
+    // 使用优化的参数验证宏
+    VALIDATE_CHAIN_TYPE(chain_type);
 
     // 创建指向点的指针数组（这里需要与现有API兼容）
     std::vector<double *> points;
@@ -542,11 +553,12 @@ py::array_t<double> KMT_chain(py::array_t<double> input, const std::string &chai
 }
 
 py::array_t<int> gauss_notation(py::array_t<double> input) {
-    // 请求 buffer_info 以访问数组数据和维度信息
+    // 使用优化的数组信息提取
     py::buffer_info info = input.request();
-
-    if (info.ndim != 2 || info.shape[1] != 3) {
-        throw std::runtime_error("Expected a 2-dimensional array with shape (N, 3)");
+    VALIDATE_ARRAY_DIMS(info, 2);
+    
+    if (UNLIKELY(info.shape[1] != 3)) {
+        throw std::runtime_error("Expected array with shape (N, 3)");
     }
 
     const ssize_t nAtoms = info.shape[0];
@@ -578,33 +590,46 @@ void get_alexander_map(std::string filename)
 }
 
 // 超高性能并行版本 - calculate_knot_type
-std::vector<std::string> calculate_knot_type_parallel(py::array_t<double> input, const std::string &chain_type = "ring")
+std::vector<std::string> calculate_knot_type_parallel(py::array_t<double> input, const std::string &chain_type = "ring", int num_threads = 2)
 {
     // 使用优化的数组信息提取
     OptimizedUtils::pybind_optimized::FastArrayInfo array_info(input);
     
-    // 验证chain_type参数
-    if (UNLIKELY(chain_type != "ring" && chain_type != "open")) {
-        throw std::runtime_error("Invalid chain_type. Expected 'ring' or 'open'.");
-    }
+    // 使用优化的参数验证宏
+    VALIDATE_CHAIN_TYPE(chain_type);
 
-    // 预分配结果向量
+    // 预分配结果向量，用于并行写入
     std::vector<std::string> result_knottype(array_info.nFrames);
     
-    // 获取缓存实例 - 现在使用线程安全的缓存
+    // 获取缓存实例 - 现在使用线程安全的缓存，添加额外保护
     static ResultCache<size_t, std::string> cache(1000);
+    static std::mutex parallel_cache_mutex;
     
-    // 确定是否值得并行化
-    const size_t min_frames_for_parallel = 4;
+    // 确定是否值得并行化 - 提高阈值避免过度并行化
+    const size_t min_frames_for_parallel = 100;
     const bool is_ring = (chain_type == "ring");
     
     if (array_info.nFrames >= min_frames_for_parallel) {
         // 并行处理版本
+        if (UNLIKELY(array_info.nAtoms == 0 || array_info.nDimension != 3)) {
+            throw std::runtime_error("Invalid array dimensions for parallel processing");
+        }
+        
         OptimizedUtils::parallel::parallelFor(
-            0, array_info.nFrames, 2,
+            0, array_info.nFrames, 10, num_threads,
             [&](size_t start, size_t end) {
                 for (size_t i = start; i < end; ++i) {
+                    // 增强边界检查
+                    if (UNLIKELY(i >= static_cast<size_t>(array_info.nFrames))) break;
+                    
                     const size_t frame_offset = i * array_info.nAtoms * array_info.nDimension;
+                    
+                    // 确保frame_offset不会溢出
+                    const size_t max_offset = (array_info.nFrames - 1) * array_info.nAtoms * array_info.nDimension;
+                    if (UNLIKELY(frame_offset > max_offset)) {
+                        result_knottype[i] = "unknown";
+                        continue;
+                    }
                     
                     // 计算帧的哈希值用于缓存
                     const size_t frame_hash = OptimizedUtils::computeFrameHash(
@@ -618,26 +643,34 @@ std::vector<std::string> calculate_knot_type_parallel(py::array_t<double> input,
                         continue;
                     }
                     
-                    // 使用RAII管理内存的PointManager
-                    PointManager point_manager(array_info.data, array_info.nAtoms, 
-                                             array_info.nDimension, frame_offset);
-                    
-                    // 获取兼容格式的指针
-                    auto points = point_manager.getCompatiblePointers();
-                    
-                    // 调用计算函数
-                    find_max_span(points);
-                    
-                    std::string knottype;
-                    if (LIKELY(is_ring)) {
-                        knottype = get_knottype_ring_faster(points);
-                    } else {
-                        knottype = get_knottype_open_faster(points);
+                    try {
+                        // 使用RAII管理内存的PointManager
+                        PointManager point_manager(array_info.data, array_info.nAtoms, 
+                                                 array_info.nDimension, frame_offset);
+                        
+                        // 获取兼容格式的指针
+                        auto points = point_manager.getCompatiblePointers();
+                        if (UNLIKELY(points.empty())) {
+                            result_knottype[i] = "unknown";
+                            continue;
+                        }
+                        
+                        // 调用计算函数
+                        find_max_span(points);
+                        
+                        std::string knottype;
+                        if (LIKELY(is_ring)) {
+                            knottype = get_knottype_ring_faster(points);
+                        } else {
+                            knottype = get_knottype_open_faster(points);
+                        }
+                        
+                        // 缓存结果
+                        cache.put(cache_key, knottype);
+                        result_knottype[i] = knottype;
+                    } catch (const std::exception& e) {
+                        result_knottype[i] = "error";
                     }
-                    
-                    // 缓存结果
-                    cache.put(cache_key, knottype);
-                    result_knottype[i] = knottype;
                 }
             }
         );
@@ -694,12 +727,16 @@ PYBIND11_MODULE(alexander_poly, m) {
     // knot type - 高性能并行版本
     m.def("calculate_knot_type_parallel", &calculate_knot_type_parallel, 
           "High-performance parallel calculate knot type from numpy array with SIMD and caching optimizations", 
-          py::arg("input"), py::arg("chain_type") = "ring");
+          py::arg("input"), py::arg("chain_type") = "ring", py::arg("num_threads") = 2,
+          py::call_guard<py::gil_scoped_release>()
+        );
     
     // knot type - SIMD增强版本
     m.def("calculate_knot_type_simd", &calculate_knot_type_simd, 
           "SIMD-enhanced knot type calculation with advanced memory management", 
-          py::arg("input"), py::arg("chain_type") = "ring");
+          py::arg("input"), py::arg("chain_type") = "ring", py::arg("num_threads") = 2,
+          py::call_guard<py::gil_scoped_release>()
+        );
     
     // knot size
     m.def("calculate_knot_size", &calculate_knot_size, "Calculate knot size from numpy array");

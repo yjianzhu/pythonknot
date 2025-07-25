@@ -64,6 +64,10 @@
         "valarray": "cpp",
         "variant": "cpp",
         "bit": "cpp",
-        "cfenv": "cpp"
+        "cfenv": "cpp",
+        "compare": "cpp",
+        "concepts": "cpp",
+        "ranges": "cpp",
+        "stop_token": "cpp"
     }
 }

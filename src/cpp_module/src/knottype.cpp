@@ -5,6 +5,7 @@
 #include "hull2.h"
 
 using namespace std;
+extern std::mutex ginac_mutex;
 
 // extern GiNaC::symbol t;
 // extern GiNaC::lst syms;
@@ -284,7 +285,7 @@ string get_knottype_by_matrix_open(vector<double *> &points)
     // cout<<"crossing number:"<<crossing.size()<<'\t'<<count_crossing<<endl;
 
     //end test
-
+    std::unique_lock<std::mutex> lock(ginac_mutex);
     GiNaC::matrix m(count_crossing,count_crossing);
     //GiNaC::ex a=m.determinant();
     

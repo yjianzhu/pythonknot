@@ -126,7 +126,7 @@ class CMakeBuild(build_ext):
 
 setuptools.setup(
     name="pythonknot",
-    version="0.1.15.4",
+    version="0.1.16",
     author="yjianzhu",
     author_email="yjianzhu@mail.ustc.edu.cn",
     description="pythonknot for knot theory calculation",
