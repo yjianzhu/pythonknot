@@ -1,0 +1,4 @@
+[submodule "vendor/rust_knot"]
+	path = vendor/rust_knot
+	url = /home/yongjian/code_knot_dai/code_knot_alex/vibe_coding/rust_knot
+	branch = feature/thread-management

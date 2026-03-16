@@ -12,3 +12,9 @@ pythonenv*
 test/
 wheelhouse/
 docker_compile.md
+
+.vscode
+
+vendor/
+
+old_cpp_compile/

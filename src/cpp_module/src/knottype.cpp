@@ -589,7 +589,6 @@ string get_knottype_ring_faster(vector<double *> &points)
         start_point[i]=simplify_points[0][i];
     simplify_points.push_back(start_point);
 
-
     string  result=get_knottype_by_matrix_open(simplify_points);
     delete[] start_point;
 

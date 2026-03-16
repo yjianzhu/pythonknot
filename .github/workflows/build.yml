@@ -1,93 +1,65 @@
-name: Build and Test
+name: Build Wheels (macOS + Windows)
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - main
   pull_request:
     branches:
       - main
-  workflow_dispatch:  # Allows you to run the workflow manually from the Actions tab
 
 jobs:
   build:
-    name: Build on ${{ matrix.os }}
+    name: ${{ matrix.os }} / py${{ matrix.python-version }}
     runs-on: ${{ matrix.os }}
     strategy:
+      fail-fast: false
       matrix:
-        os: [ubuntu-20.04] # [ubuntu-22.04,ubuntu-20.04,ubuntu-18.04,macos-latest,windows-latest]
-        python-version: [3.8, 3.9, '3.10', '3.11']
+        os: [windows-2022, macos-15]
+        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+
+    env:
+      # Temporary workaround for pyo3 0.21.x on Python 3.13+.
+      PYO3_USE_ABI3_FORWARD_COMPATIBILITY: "1"
 
     steps:
-    - uses: actions/checkout@v2
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v2
-      with:
-        python-version: ${{ matrix.python-version }}
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
-        pip install setuptools wheel twine pybind11[global] numpy
-        if [ "$RUNNER_OS" == "Windows" ]; then
-          choco install make
-        fi
-    - name: Install C++ dependencies
-      run: |
-        pwd
-        sudo apt install libeigen3-dev
-    
-    - name: Build C++ code 
-      run: |
-        cd ${GITHUB_WORKSPACE}/src/cpp_module/cln/
-        ./autogen.sh
-        mkdir build
-        ./configure --with-gmp --prefix=$(pwd)/build  CFLAGS="-g -O2 -fPIC" CXXFLAGS="-g -O2 -fPIC"
-        make -j 10
-        make install
+      - name: Install Rust toolchain (official rustup)
+        shell: bash
+        run: |
+          curl https://sh.rustup.rs -sSf | sh -s -- -y --profile minimal
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          rustc --version
+          cargo --version
 
-        cd ${GITHUB_WORKSPACE}/src/cpp_module/ginac/
-        mkdir build
-        cd build
-        cmake ..
-        make -j 5
-        make install
-        cd ${GITHUB_WORKSPACE}
+      - name: Ensure macOS runner is ARM64
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          uname -m
+          test "$(uname -m)" = "arm64"
 
-    - name: Build wheel
-      run: |
-        g++ -v
-        python setup.py bdist_wheel
+      - name: Install build dependencies
+        run: |
+          python -m pip install -U pip setuptools wheel
 
-    - name: Show the wheel with auditwheel-symbols
-      run: |
-        pip install auditwheel-symbols
-        auditwheel-symbols --manylinux 2_28 dist/*.whl
+      - name: Build wheel
+        run: |
+          python setup.py bdist_wheel
 
-    - name: Repair wheel
-      run: |
-        pip install auditwheel
-        auditwheel repair --plat manylinux_2_28_x86_64 dist/*.whl -w output_dir
-
-    - name: Upload wheel
-      uses: actions/upload-artifact@v2
-      with:
-        name: wheels
-        path: output_dir, dist
-
-    # - name: Install the package from wheel
-    #   run: |
-    #     pip install dist/*.whl
-
-    # - name: Test the installation
-    #   run: |
-    #     # Replace with your package's test command
-    #     python -m unittest discover tests
-
-    # - name: Upload wheel to PyPI
-    #   if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    #   uses: pypa/gh-action-pypi-publish@v1.4.2
-    #   with:
-    #     user: __token__
-    #     password: ${{ secrets.PYPI_API_TOKEN }}
+      - name: Upload wheel artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.os }}-py${{ matrix.python-version }}
+          path: dist/*.whl
+          if-no-files-found: error
