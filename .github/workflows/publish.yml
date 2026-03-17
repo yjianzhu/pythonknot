@@ -116,9 +116,9 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-publish:
+  publish:
     name: Publish
-    needs:[build-wheels, build-sdist]
+    needs: [build-wheels, build-sdist]
     runs-on: ubuntu-latest
     permissions:
       id-token: write  # 必须：授予 OIDC token 的生成权限
