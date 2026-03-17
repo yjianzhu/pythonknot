@@ -139,15 +139,15 @@ jobs:
         run: |
           ls -lh dist
 
-      - name: Publish package to PyPI (Trusted Publishing)
-        if: ${{ secrets.PYPI_API_TOKEN == '' }}
-        uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          packages-dir: dist
-          skip-existing: true
+      - name: Validate PyPI token
+        shell: bash
+        run: |
+          if [[ -z "${{ secrets.PYPI_API_TOKEN }}" ]]; then
+            echo "ERROR: secrets.PYPI_API_TOKEN is empty or missing."
+            exit 1
+          fi
 
-      - name: Publish package to PyPI (API token)
-        if: ${{ secrets.PYPI_API_TOKEN != '' }}
+      - name: Publish package to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: dist
