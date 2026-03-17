@@ -116,14 +116,14 @@ jobs:
           if-no-files-found: error
           retention-days: 7
 
-  publish:
+publish:
     name: Publish
-    needs: [build-wheels, build-sdist]
+    needs:[build-wheels, build-sdist]
     runs-on: ubuntu-latest
     permissions:
-      id-token: write
+      id-token: write  # 必须：授予 OIDC token 的生成权限
     environment:
-      name: pypi
+      name: pypi       # 必须：与 PyPI Trusted Publisher 里的 Environment name 完全一致
       url: https://pypi.org/p/pythonknot
     steps:
       - name: Download all build artifacts
@@ -138,18 +138,12 @@ jobs:
         run: |
           ls -lh dist
 
-      - name: Validate PyPI token
-        shell: bash
-        run: |
-          if [[ -z "${{ secrets.PYPI_API_TOKEN }}" ]]; then
-            echo "ERROR: secrets.PYPI_API_TOKEN is empty or missing."
-            exit 1
-          fi
+      # 【注意】删除了验证 token 的步骤
 
       - name: Publish package to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: dist
           skip-existing: true
-          user: __token__
-          password: ${{ secrets.PYPI_API_TOKEN }}
+          # 【注意】绝对不能写 user: __token__ 和 password: ${{ secrets.PYPI_API_TOKEN }}
+          # 不写这两个字段，插件才会自动使用 OIDC (Trusted Publisher)
