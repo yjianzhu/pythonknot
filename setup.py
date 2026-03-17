@@ -37,6 +37,9 @@ class RustBuild(build_ext):
         env["PYO3_PYTHON"] = sys.executable
         env["CARGO_TARGET_DIR"] = str(cargo_target_dir)
         env["TMPDIR"] = str(cargo_tmp_dir)
+        if sys.platform.startswith("darwin"):
+            mac_link_args = "-C link-arg=-undefined -C link-arg=dynamic_lookup"
+            env["RUSTFLAGS"] = f"{env.get('RUSTFLAGS', '')} {mac_link_args}".strip()
 
         cargo_cmd = [
             "cargo",
