@@ -69,7 +69,7 @@ class RustBuild(build_ext):
 
 setuptools.setup(
     name="pythonknot",
-    version="0.1.16",
+    version="0.2.0",
     author="yjianzhu",
     author_email="yjianzhu@mail.ustc.edu.cn",
     description="pythonknot for knot theory calculation",

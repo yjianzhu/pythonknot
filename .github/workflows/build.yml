@@ -4,56 +4,69 @@ on:
   workflow_dispatch:
   push:
     branches:
+      - master
       - main
   pull_request:
     branches:
+      - master
       - main
 
 jobs:
-  build:
+  build-wheels:
     name: ${{ matrix.os }} / py${{ matrix.python-version }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        os: [windows-2022, macos-15]
+        os: [windows-2022, macos-13]
         python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
 
     env:
-      # Temporary workaround for pyo3 0.21.x on Python 3.13+.
+      # Keep enabled to avoid forward-compat edge cases on newest CPython.
       PYO3_USE_ABI3_FORWARD_COMPATIBILITY: "1"
+      RUST_KNOT_REPO: ${{ vars.RUST_KNOT_REPO }}
+      RUST_KNOT_REF: ${{ vars.RUST_KNOT_REF }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          submodules: recursive
+          submodules: false
+
+      - name: Ensure rust_knot source is available
+        shell: bash
+        run: |
+          if [[ -f vendor/rust_knot/Cargo.toml ]]; then
+            echo "Using existing vendor/rust_knot in repository checkout."
+            exit 0
+          fi
+
+          if [[ -z "${RUST_KNOT_REPO}" ]]; then
+            echo "ERROR: vendor/rust_knot missing and RUST_KNOT_REPO is not configured."
+            echo "Set repository variable RUST_KNOT_REPO to a cloneable git URL."
+            exit 1
+          fi
+
+          REF="${RUST_KNOT_REF:-master}"
+          mkdir -p vendor
+          git clone --depth 1 --branch "${REF}" "${RUST_KNOT_REPO}" vendor/rust_knot
+          test -f vendor/rust_knot/Cargo.toml
 
       - name: Set up Python ${{ matrix.python-version }}
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Install Rust toolchain (official rustup)
-        shell: bash
-        run: |
-          curl https://sh.rustup.rs -sSf | sh -s -- -y --profile minimal
-          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
-          rustc --version
-          cargo --version
-
-      - name: Ensure macOS runner is ARM64
-        if: runner.os == 'macOS'
-        shell: bash
-        run: |
-          uname -m
-          test "$(uname -m)" = "arm64"
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
 
       - name: Install build dependencies
+        shell: bash
         run: |
           python -m pip install -U pip setuptools wheel
 
       - name: Build wheel
+        shell: bash
         run: |
           python setup.py bdist_wheel
 
@@ -63,3 +76,4 @@ jobs:
           name: wheels-${{ matrix.os }}-py${{ matrix.python-version }}
           path: dist/*.whl
           if-no-files-found: error
+          retention-days: 7

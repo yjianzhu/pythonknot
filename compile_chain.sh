@@ -14,20 +14,24 @@ if ! command -v cargo >/dev/null 2>&1; then
   exit 1
 fi
 
-PY_TAGS=(
-  cp38-cp38
-  cp39-cp39
-  cp310-cp310
-  cp311-cp311
-  cp312-cp312
-  cp313-cp313
-  cp314-cp314
-)
+if [[ -n "${PY_TAGS:-}" ]]; then
+  read -r -a PY_TAGS_ARR <<< "${PY_TAGS}"
+else
+  PY_TAGS_ARR=(
+    cp38-cp38
+    cp39-cp39
+    cp310-cp310
+    cp311-cp311
+    cp312-cp312
+    cp313-cp313
+    cp314-cp314
+  )
+fi
 
 mkdir -p dist
 rm -f dist/*.whl || true
 
-for tag in "${PY_TAGS[@]}"; do
+for tag in "${PY_TAGS_ARR[@]}"; do
   if [[ ! -x "/opt/python/${tag}/bin/python" ]]; then
     echo "Skip ${tag}: interpreter not found"
     continue
