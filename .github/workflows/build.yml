@@ -1,15 +1,9 @@
 name: Build Wheels (macOS + Windows)
 
 on:
-  workflow_dispatch:
   push:
-    branches:
-      - master
-      - main
-  pull_request:
-    branches:
-      - master
-      - main
+    tags:
+      - "v*"
 
 jobs:
   build-wheels:
